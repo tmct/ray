@@ -14,6 +14,7 @@
 
 #include "ray/rpc/grpc_server.h"
 
+#include <grpc/grpc_security_constants.h>
 #include <grpcpp/impl/service_type.h>
 
 #include <boost/asio/detail/socket_holder.hpp>
@@ -25,7 +26,11 @@ namespace ray {
 namespace rpc {
 
 GrpcServer::GrpcServer(std::string name, const uint32_t port, int num_threads)
-    : name_(std::move(name)), port_(port), is_closed_(true), num_threads_(num_threads) {
+    : name_(std::move(name)),
+      port_(port),
+      use_auth_(true),
+      is_closed_(true),
+      num_threads_(num_threads) {
   cqs_.resize(num_threads_);
 }
 
@@ -41,8 +46,26 @@ void GrpcServer::Run() {
                              RayConfig::instance().max_grpc_message_size());
   builder.AddChannelArgument(GRPC_ARG_MAX_RECEIVE_MESSAGE_LENGTH,
                              RayConfig::instance().max_grpc_message_size());
-  // TODO(hchen): Add options for authentication.
-  builder.AddListeningPort(server_address, grpc::InsecureServerCredentials(), &port_);
+
+  std::shared_ptr<grpc::ServerCredentials> server_creds =
+      grpc::InsecureServerCredentials();
+  if (use_auth_) {
+    std::string rootcert = "foo";  // for verifying clients
+    std::string servercert = "bar";
+    std::string serverkey = "baz";
+
+    grpc::SslServerCredentialsOptions::PemKeyCertPair pkcp = {serverkey.c_str(),
+                                                              servercert.c_str()};
+
+    grpc::SslServerCredentialsOptions ssl_opts(
+        GRPC_SSL_REQUEST_AND_REQUIRE_CLIENT_CERTIFICATE_AND_VERIFY);
+    ssl_opts.pem_root_certs = rootcert;
+    ssl_opts.pem_key_cert_pairs.push_back(pkcp);
+
+    server_creds = grpc::SslServerCredentials(ssl_opts);
+  }
+
+  builder.AddListeningPort(server_address, server_creds, &port_);
   // Register all the services to this server.
   if (services_.empty()) {
     RAY_LOG(WARNING) << "No service is found when start grpc server " << name_;

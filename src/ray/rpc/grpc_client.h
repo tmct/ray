@@ -51,9 +51,10 @@ class GrpcClient {
     argument.SetInt(GRPC_ARG_ENABLE_HTTP_PROXY, 0);
     argument.SetMaxSendMessageSize(RayConfig::instance().max_grpc_message_size());
     argument.SetMaxReceiveMessageSize(RayConfig::instance().max_grpc_message_size());
+    auto channel_creds = grpc::SslCredentials(grpc::SslCredentialsOptions());
     std::shared_ptr<grpc::Channel> channel =
         grpc::CreateCustomChannel(address + ":" + std::to_string(port),
-                                  grpc::InsecureChannelCredentials(), argument);
+                                  channel_creds, argument);
     stub_ = GrpcService::NewStub(channel);
   }
 
@@ -67,9 +68,20 @@ class GrpcClient {
     argument.SetInt(GRPC_ARG_ENABLE_HTTP_PROXY, 0);
     argument.SetMaxSendMessageSize(RayConfig::instance().max_grpc_message_size());
     argument.SetMaxReceiveMessageSize(RayConfig::instance().max_grpc_message_size());
+
+    std::string pem_root_certs = "a";
+    std::string pem_private_key = "b";
+    std::string pem_cert_chain = "c";
+
+    grpc::SslCredentialsOptions opts = {
+        pem_root_certs.c_str(),
+        pem_private_key.c_str(),
+        pem_cert_chain.c_str(),
+    };
+    auto channel_creds = grpc::SslCredentials(opts);
     std::shared_ptr<grpc::Channel> channel =
         grpc::CreateCustomChannel(address + ":" + std::to_string(port),
-                                  grpc::InsecureChannelCredentials(), argument);
+                                  channel_creds, argument);
     stub_ = GrpcService::NewStub(channel);
   }
 

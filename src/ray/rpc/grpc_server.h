@@ -105,6 +105,8 @@ class GrpcServer {
   const std::string name_;
   /// Port of this server.
   int port_;
+  /// Whether to authenticate
+  bool use_auth_;
   /// Indicates whether this server has been closed.
   bool is_closed_;
   /// The `grpc::Service` objects which should be registered to `ServerBuilder`.
